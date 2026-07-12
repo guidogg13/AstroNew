@@ -141,7 +141,7 @@ skip the wizard.
 ```env
 OPENROUTER_API_KEY=your_real_api_key_here
 AI_MODEL=Your Model
-API_BASE_URL=https://openrouter.ai/api/v1
+API_BASE_URL=https://openrouter.ai/
 ```
 
 > ⚠️ **Never commit `astronew/.env` with a real key.** Keep it listed in `.gitignore`. The API key must
