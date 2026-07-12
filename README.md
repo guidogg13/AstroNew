@@ -2,14 +2,11 @@
 
 # 🌌 AstroNew
 
-### A Desktop Suite for Exploring the ESA Gaia DR3 Archive — with a Built-in AI Assistant
+### Explore the real ESA Gaia DR3 archive from your terminal — with verified astrophysics and an autonomous AI assistant.
 
-[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue.svg)](./LICENSE.md)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Gaia](https://img.shields.io/badge/data-Gaia%20DR3-orange.svg)](https://www.cosmos.esa.int/web/gaia/data-release-3)
-[![Status](https://img.shields.io/badge/status-active-brightgreen.svg)]()
-
-**[Download](#-download)** • **[Installation](#-installation)** • **[Usage](#-usage)** • **[Features](#-features)** • **[Credits](#-data-credits)** • **[License](#-license)**
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue.svg)](./LICENZE.md)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Data: Gaia DR3](https://img.shields.io/badge/data-ESA%20Gaia%20DR3-orange.svg)](https://www.cosmos.esa.int/web/gaia/data-release-3)
 
 </div>
 
@@ -17,67 +14,91 @@
 
 ## 📖 About AstroNew
 
-**AstroNew** is a free desktop application built for astronomers, astrophysicists, students, and anyone curious about the sky, designed to make querying and exploring the **ESA Gaia DR3** archive fast, visual, and accessible — without requiring deep knowledge of ADQL or the TAP protocol.
+**AstroNew** is a free, open, educational desktop application (written in Python) that lets you
+query the official **ESA Gaia DR3** archive, run real astrophysical calculations on the results,
+visualize them with scientific plots, and ask questions about them to a built-in AI assistant —
+all from a simple menu-driven command-line interface.
 
-Gaia DR3 remains one of the richest astrometric and astrophysical datasets ever released, containing positions, parallaxes, proper motions, and physical parameters for over a billion stars. But accessing it directly usually means writing raw ADQL queries against ESA's TAP service — a barrier for many students, amateur astronomers, and even professionals who just need quick answers.
+Gaia DR3 is one of the richest astrometric catalogues ever published, with positions, parallaxes,
+proper motions, and photometry for more than a billion stars. Accessing it normally means writing
+raw ADQL queries against ESA's TAP service — a real barrier for students, amateur astronomers, and
+even professionals who just need a quick answer. AstroNew lowers that barrier while staying **100%
+faithful to the real data**.
 
-AstroNew removes that barrier. It provides:
+**Who is it for?**
 
-- A clean desktop interface to build and run Gaia DR3 queries without writing ADQL by hand
-- An **integrated AI assistant** that can help you formulate queries, interpret results, and navigate the archive using natural language
-- Built-in tools for visualizing, filtering, and exporting the data you retrieve
+- **Researchers** who want a fast, transparent way to pull and inspect Gaia sources around a target.
+- **Students and educators** learning stellar astrometry, distance determination, and the H–R diagram.
+- **Amateur astronomers and curious developers** who want to explore real sky data without a heavyweight toolchain.
 
-The long-term goal of AstroNew is to become a **standard reference tool** for the astronomical community — a free, transparent, and actively maintained alternative to writing raw queries or juggling multiple scripts every time you need Gaia data.
+**Why it's useful:**
 
-> Whether you're a researcher cross-matching targets, a student learning stellar astrometry, or an astrophotographer curious about a field of stars — AstroNew is built to get you from question to data in minutes.
+- **Direct, legal access to real Gaia DR3 data** — queries go to the official ESA archive via the
+  public, anonymous TAP/ADQL service. No scraping, no authentication, no synthetic data.
+- **Verified astrophysical calculations** — every formula (distance modulus, Pogson's law, etc.) is
+  documented in the code with the physical relation it implements.
+- **An AI assistant with autonomous tool calling** — it can query Gaia on its own when your question
+  needs data it doesn't already have, and it is instructed to never invent numbers, methods, or terminology.
 
 ---
 
 ## ✨ Features
 
-- 🔭 **Gaia DR3 Access** — Query the archive directly via TAP/ADQL, no authentication required (fully public and legal access, even after the Gaia satellite's decommission in March 2025 — the archive remains permanently available)
-- 🤖 **AI Assistant** — An integrated conversational assistant helps you build queries, explains results, and answers astronomy-related questions in natural language, right inside the app
-- 📊 **Data Visualization** — Instantly plot color-magnitude diagrams, sky maps, proper motion diagrams, and more using built-in `matplotlib` tools
-- 📁 **Data Export** — Export any query result to CSV or other formats for further analysis in your own pipeline
-- 🖥️ **Cross-Platform Desktop App** — Runs locally on your machine; no data leaves your computer except the queries sent to the official ESA Gaia archive
-- 🧩 **No Coding Required** — Designed so that anyone, regardless of programming background, can retrieve real Gaia DR3 data
-- 🔐 **Privacy-Respecting** — Gaia data access is anonymous by design; the optional AI assistant requires only your own API key, stored locally
+- **🔭 Query Gaia DR3 by name or by coordinates**
+  - Search around a resolved star name (e.g. `Sirius`) via SIMBAD name resolution.
+  - Search a sky region by right ascension, declination, and radius (in degrees), with a configurable row limit.
+  - All queries use ADQL cone searches against `gaiadr3.gaia_source` and return `source_id`, `ra`, `dec`,
+    `parallax`, `parallax_error`, `phot_g_mean_mag`, `bp_rp`, `pmra`, and `pmdec`.
+
+- **🧮 Verified astrophysical calculations** — each with the physical formula cited in its docstring:
+  - Parallax → distance: `d [pc] = 1 / p [arcsec]`
+  - Absolute magnitude (distance modulus): `M = m − 5·log₁₀(d/10 pc)`
+  - Total proper motion: `μ = √(μα² + μδ²)`
+  - Tangential velocity: `v_t [km/s] = 4.74·μ [mas/yr]·d [pc] / 1000`
+  - Luminosity ratio to the Sun (Pogson's law): `L/L☉ = 10^(−(M − M☉)/2.5)`, with `M☉ = 4.83`
+
+- **📊 Four scientific plot types** (rendered with `matplotlib` and saved as PNG):
+  - Hertzsprung–Russell diagram (BP−RP color vs. absolute magnitude)
+  - Celestial sky map (RA/Dec, point size scaled by luminosity)
+  - Distance distribution histogram (with mean and median markers)
+  - Proper-motion vector field (RA/Dec with motion arrows)
+
+- **🤖 Conversational AI assistant with autonomous data access**
+  - Answers naturally to greetings and general questions without dumping raw data.
+  - Uses **tool calling** to query Gaia DR3 on its own (`query_by_name`, `query_region`) when your
+    question needs data that isn't already loaded.
+  - Reasons over the currently loaded dataset (distances, magnitudes, proper motion, comparisons)
+    and is instructed to say so honestly when the data can't answer the question.
+  - Runs on any OpenAI-compatible provider (default: [OpenRouter](https://openrouter.ai/)).
 
 ---
 
 ## 🖼️ Screenshots
 
-> *Screenshots and a short demo GIF will be added here shortly — showcasing the main dashboard, the query builder, and the AI assistant in action.*
+The following plots were generated by AstroNew from a real Gaia DR3 query around a bright star field.
 
-<div align="center">
-<i>[ Main Dashboard — coming soon ]</i><br>
-<i>[ AI Assistant in Action — coming soon ]</i><br>
-<i>[ Data Visualization Panel — coming soon ]</i>
-</div>
+![Hertzsprung–Russell diagram generated from Gaia DR3 data](hr_diagram.png)
+*Hertzsprung–Russell diagram: BP−RP color index on the x-axis versus absolute magnitude on the y-axis
+(inverted, so brighter stars are higher). Points are colored by apparent G-band magnitude. Absolute
+magnitudes are derived from the measured parallax via the distance modulus.*
 
----
+![Celestial sky map of Gaia DR3 sources](sky_map.png)
+*Sky map: right ascension vs. declination for the retrieved sources. Point size is scaled by the star's
+estimated luminosity relative to the Sun, and color encodes apparent G-band magnitude.*
 
-## ⬇️ Download
+![Histogram of estimated distances](distance_histogram.png)
+*Distance distribution: a histogram of the distances (in parsecs) computed from each source's parallax.
+The dashed lines mark the mean and median distance of the sample.*
 
-**Don't want to install Python or deal with the command line?**
-
-You can download a ready-to-use build of AstroNew directly from the official website:
-
-### 👉 [Download AstroNew](#) *(link to be added once published)*
-
-This is the recommended option for most users — astronomers, students, and hobbyists who just want to open the app and start exploring Gaia data.
+![Proper-motion vector field](proper_motion_vectors.png)
+*Proper-motion vectors: each star's position (RA/Dec) with an arrow representing the direction and
+magnitude of its proper motion (`pmra`, `pmdec`), revealing how the field is moving across the sky.*
 
 ---
 
 ## ⚙️ Installation
 
-If you're a developer, or you want to run AstroNew from source, follow the steps below.
-
-### Requirements
-
-- Python 3.10 or higher
-- pip (Python package manager)
-- Git
+AstroNew runs from source. You'll need **Python 3.11+**, `pip`, and `git`.
 
 ### 1. Clone the repository
 
@@ -86,12 +107,12 @@ git clone https://github.com/your-username/AstroNew.git
 cd AstroNew
 ```
 
-### 2. Create a virtual environment (recommended)
+### 2. Create and activate a virtual environment
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate      # on macOS/Linux
-venv\Scripts\activate         # on Windows
+python3 -m venv .venv
+source .venv/bin/activate      # macOS / Linux
+# .venv\Scripts\activate       # Windows (PowerShell)
 ```
 
 ### 3. Install the dependencies
@@ -100,120 +121,177 @@ venv\Scripts\activate         # on Windows
 pip install -r requirements.txt
 ```
 
-### 4. (Optional) Set up the AI Assistant
+### 4. Configure the AI assistant (optional)
 
-AstroNew's AI assistant runs on an external model via an OpenAI-compatible provider such as [OpenRouter](https://openrouter.ai/) (free for many models). **You don't need to edit any file by hand** — the first time you launch AstroNew, a **guided setup wizard** runs automatically whenever the configuration is missing:
+The AI assistant uses an OpenAI-compatible provider (by default [OpenRouter](https://openrouter.ai/),
+which offers several free models). Configuration lives in `astronew/.env`. You have two ways to set it up:
 
-1. Create a free account on OpenRouter and generate an API key
-2. Launch AstroNew (see step 5) — the wizard will prompt you to:
-   - **Paste your API key**
-   - **Choose a model** (press Enter to accept the suggested default, `nvidia/nemotron-3-super-120b-a12b:free`)
-   - **Optionally set the API base URL** (press Enter to keep the default, `https://openrouter.ai/api/v1`)
-3. Your answers are saved automatically to `astronew/.env`, and the app continues to the main menu
+**Option A — Guided setup (recommended).** The first time you launch AstroNew, if `astronew/.env` is
+missing or the API key is still the placeholder, a **guided setup wizard runs automatically** and asks you to:
 
-The wizard only appears when `astronew/.env` is missing or the API key is still the placeholder. Once a valid key is saved, **subsequent launches skip the wizard** and go straight to the menu.
+1. Paste your API key (press Enter to skip — the app still works, only the AI assistant stays disabled).
+2. Choose a model (press Enter to accept the default, `nvidia/nemotron-3-super-120b-a12b:free`).
+3. Optionally set the API base URL (press Enter to keep `https://openrouter.ai/api/v1`).
 
-> The app works fully without an API key — just press **Enter** at the key prompt to skip. You can still query Gaia DR3 and generate plots; the AI assistant stays disabled until you configure a key (the wizard will offer to set it up again on the next launch).
+Your answers are written to `astronew/.env` automatically. Once a valid key is saved, later launches
+skip the wizard.
 
-### 5. Run AstroNew
+**Option B — Manual configuration.** Create a file at `astronew/.env` with the following variables:
 
-```bash
-python3 -m astronew
+```env
+OPENROUTER_API_KEY=your_real_api_key_here
+AI_MODEL=nvidia/nemotron-3-super-120b-a12b:free
+API_BASE_URL=https://openrouter.ai/api/v1
 ```
+
+> ⚠️ **Never commit `astronew/.env` with a real key.** Keep it listed in `.gitignore`. The API key must
+> come from the environment file — it is never hardcoded in the source.
+
+The data-query and plotting features work fully **without** any API key; only the AI assistant requires one.
 
 ---
 
 ## 🚀 Usage
 
-Once launched, AstroNew presents a simple menu-driven interface:
+Launch AstroNew as a module from the project root:
 
-1. **Query Gaia DR3** — Build a query using guided filters (region of sky, magnitude range, parallax, proper motion, etc.) without writing ADQL yourself
-2. **AI Assistant** — Ask questions in plain language, such as *"Find all stars within 50 parsecs with a parallax error under 5%"*, and let the assistant translate that into a valid query
-3. **Visualize Results** — Generate color-magnitude diagrams, sky distribution plots, and more from your retrieved dataset
-4. **Export Data** — Save your results locally as CSV for further analysis
-
-### Example: A Basic ADQL Query
-
-Behind the scenes, a simple AstroNew query might translate to something like:
-
-```sql
-SELECT TOP 1000 source_id, ra, dec, parallax, phot_g_mean_mag
-FROM gaiadr3.gaia_source
-WHERE parallax > 10
+```bash
+python3 -m astronew.main
 ```
 
-AstroNew builds and runs queries like this for you — but you can also write and run your own ADQL directly if you prefer full control.
+You'll get a simple text menu:
+
+```
+Menu principale:
+1) Cerca stella/regione      # Search a star / sky region
+2) Visualizza grafici        # Generate plots
+3) Assistente IA             # AI assistant
+4) Esci                      # Quit
+```
+
+### A typical session
+
+1. **Search for a star.** Choose option `1`, then search by name:
+   ```
+   Metodo (1/2): 1
+   Nome della stella: Sirius
+   Trovati 200 oggetti intorno a Sirius.
+   ```
+   (Or choose method `2` to search by RA, Dec, and radius in degrees.) The retrieved dataset is kept in
+   memory for the rest of the session.
+
+2. **Generate plots.** Choose option `2` and pick a visualization. For example, option `1` produces the
+   Hertzsprung–Russell diagram and saves it as `hr_diagram.png` in the project root:
+   ```
+   [Visualizza grafici]
+   1) Diagramma H-R
+   ...
+   Diagramma H-R salvato: hr_diagram.png
+   ```
+
+3. **Ask the AI assistant.** Choose option `3` to open an interactive chat. The loaded dataset is passed
+   as context, and the assistant can query Gaia autonomously if it needs more:
+   ```
+   >>> Which of these stars is the closest to us?
+   >>> What does the bp_rp column represent?
+   >>> Find the proper motion of Vega
+   ```
+   Type `esci`, `exit`, or `quit` to return to the main menu.
+
+> Every module also has a quick self-test under `if __name__ == "__main__":`. You can run an individual
+> module directly, e.g. `python3 -m astronew.analysis.calculations`, to verify it in isolation.
 
 ---
 
-## 🧠 About the AI Assistant
+## 🗂️ Project Structure
 
-The AI backend uses a large cloud-hosted language model (via OpenRouter) rather than a local model, chosen specifically because smaller local models proved unreliable for structured tasks like tool calling and query generation. The assistant can:
-
-- Translate natural language questions into valid ADQL queries
-- Explain what a set of returned columns means
-- Suggest follow-up queries or filters based on your results
-- Answer general astrophysics questions related to your data
-
-The assistant is entirely optional — AstroNew is fully functional as a Gaia DR3 query and visualization tool without it.
+```
+AstroNew/
+├── astronew/                     # Main package (always lowercase)
+│   ├── __init__.py
+│   ├── main.py                   # Entry point: main menu loop
+│   ├── setup.py                  # First-run guided .env setup wizard
+│   ├── data/
+│   │   └── gaia_client.py        # Gaia DR3 access via astroquery TAP/ADQL
+│   ├── analysis/
+│   │   └── calculations.py       # Astrophysical formulas (distance, magnitude, ...)
+│   ├── viz/
+│   │   └── plots.py              # Scientific matplotlib plotting functions
+│   └── ai/
+│       └── assistant.py          # OpenAI-compatible AI assistant with tool calling
+├── hr_diagram.png                # Example output: Hertzsprung–Russell diagram
+├── sky_map.png                   # Example output: celestial sky map
+├── distance_histogram.png        # Example output: distance distribution
+├── proper_motion_vectors.png     # Example output: proper-motion vector field
+├── requirements.txt              # Python dependencies
+├── CLAUDE.md                     # Project conventions and development guidelines
+├── LICENZE.md                    # Full license text (PolyForm Noncommercial 1.0.0)
+└── README.md                     # This file
+```
 
 ---
 
-## 🛰️ Data Credits
+## 🛰️ Data Source & Legal Compliance
 
-AstroNew is built on top of the **ESA Gaia mission** archive. In accordance with ESA's data usage terms, the following credit applies to any use of Gaia data, including through this application:
+AstroNew retrieves data **exclusively** from the official **ESA Gaia DR3** archive, through its public
+TAP/ADQL service, using `astroquery.gaia`. These are anonymous public queries — **no authentication is
+required, and no unauthorized scraping is ever performed.** The archive remains permanently and legally
+available.
 
-> *This work has made use of data from the European Space Agency (ESA) mission Gaia (https://www.cosmos.esa.int/gaia), processed by the Gaia Data Processing and Analysis Consortium (DPAC, https://www.cosmos.esa.int/web/gaia/dpac/consortium). Funding for the DPAC has been provided by national institutions, in particular the institutions participating in the Gaia Multilateral Agreement.*
+- **Official archive:** <https://www.cosmos.esa.int/web/gaia/data-release-3>
+- **Gaia Archive (TAP service):** <https://gea.esac.esa.int>
 
-If you use AstroNew as part of published research, please cite both the Gaia mission and the relevant Gaia DR3 data release paper, in addition to acknowledging AstroNew itself.
+### Required acknowledgment
+
+In accordance with ESA's data usage terms, the following credit applies to any use of Gaia data,
+including through this application:
+
+> *This work has made use of data from the European Space Agency (ESA) mission Gaia
+> (<https://www.cosmos.esa.int/gaia>), processed by the Gaia Data Processing and Analysis Consortium
+> (DPAC, <https://www.cosmos.esa.int/web/gaia/dpac/consortium>). Funding for the DPAC has been provided by
+> national institutions, in particular the institutions participating in the Gaia Multilateral Agreement.*
+
+If you use AstroNew in published research, please cite the Gaia mission and the relevant Gaia DR3 data
+release paper in addition to acknowledging AstroNew.
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] Publish official binaries for Windows, macOS, and Linux
-- [x] Add a first-run setup wizard for API key and model configuration
-- [ ] Expand visualization tools (interactive sky maps, 3D plots)
-- [ ] Register AstroNew with the Astrophysics Source Code Library (ASCL)
-- [ ] Obtain a citable DOI via Zenodo
-- [ ] Add support for cross-matching with other major catalogs (2MASS, SDSS, WISE)
-- [ ] Community-requested features (open an issue to suggest one!)
+Planned future features (not yet implemented):
 
----
+- [ ] **TESS / MAST integration** for exoplanet and time-series data, via the official MAST API.
+- [ ] **SDSS integration** through its official API.
+- [ ] **Cross-matching between archives** (e.g. Gaia ↔ TESS ↔ SDSS) on the same targets.
+- [ ] **Export of results** to CSV and other formats for use in external analysis pipelines.
+- [ ] **An automated test suite** covering the calculation, query, and plotting modules.
 
-## 🤝 Contributing
-
-Contributions, bug reports, and feature suggestions are welcome! Please note that AstroNew is distributed under a **noncommercial license** (see below) — by contributing, you agree that your contributions will be distributed under the same terms.
-
-To contribute:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Commit your changes
-4. Open a Pull Request describing what you've done and why
-
-For bugs or feature requests, please open an [Issue](../../issues).
+Have an idea? Open an issue to suggest it.
 
 ---
 
 ## 📜 License
 
-AstroNew is distributed under the **[PolyForm Noncommercial License 1.0.0](./LICENSE.md)**.
+AstroNew is distributed under the **PolyForm Noncommercial License 1.0.0**.
 
-In short: you are free to use, study, modify, and share AstroNew for **any noncommercial purpose** — personal use, academic research, teaching, and use within public or nonprofit institutions are all explicitly permitted. **Commercial use, resale, or redistribution of AstroNew (or derivative works) for profit is not permitted** under this license.
+You are free to use, study, modify, and share AstroNew for **any noncommercial purpose** — personal use,
+academic research, teaching, and use within public or nonprofit institutions are all explicitly permitted.
+Commercial use, resale, or redistribution for profit is **not** permitted under this license.
 
-See the [LICENSE.md](./LICENSE.md) file for the full legal text.
+See the full legal text in **[LICENZE.md](./LICENZE.md)**.
 
 ---
 
-## 📬 Contact
+## 🤝 Contributing
 
-For questions, suggestions, or collaboration inquiries, feel free to open an issue on this repository or reach out via the official AstroNew website *(link to be added)*.
+Contributions are welcome, even though the project is still young. If you find a bug or have an idea for a
+feature, please **open an issue** describing it. Pull requests are also welcome — by contributing, you agree
+that your contribution is distributed under the same noncommercial license as the project.
 
 <div align="center">
 
 ---
 
-Made with ☄️ for the astronomy community.
+Made with ☄️ for the astronomy community — powered by real data from **ESA Gaia DR3**.
 
 </div>
