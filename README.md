@@ -140,7 +140,7 @@ skip the wizard.
 
 ```env
 OPENROUTER_API_KEY=your_real_api_key_here
-AI_MODEL=nvidia/nemotron-3-super-120b-a12b:free
+AI_MODEL=Your Model
 API_BASE_URL=https://openrouter.ai/api/v1
 ```
 
