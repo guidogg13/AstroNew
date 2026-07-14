@@ -130,7 +130,9 @@ which offers several free models). Configuration lives in `astronew/.env`. You h
 missing or the API key is still the placeholder, a **guided setup wizard runs automatically** and asks you to:
 
 1. Paste your API key (press Enter to skip — the app still works, only the AI assistant stays disabled).
-2. Choose a model (press Enter to accept the default, `nvidia/nemotron-3-super-120b-a12b:free`).
+2. Type the model ID to use. There is **no built-in default**: the model name is never hardcoded in the
+   source, so you enter it explicitly (copy it from the model's page on openrouter.ai; it must support tool
+   calling). See [Recommended models](#-recommended-models--modelli-consigliati) below.
 3. Optionally set the API base URL (press Enter to keep `https://openrouter.ai/api/v1`).
 
 Your answers are written to `astronew/.env` automatically. Once a valid key is saved, later launches
@@ -141,13 +143,46 @@ skip the wizard.
 ```env
 OPENROUTER_API_KEY=your_real_api_key_here
 AI_MODEL=nvidia/nemotron-3-super-120b-a12b:free
+AI_MODEL_FALLBACK=nvidia/nemotron-3-super-120b-a12b:free
 API_BASE_URL=https://openrouter.ai/api/v1
 ```
+
+The model IDs above are only an example of valid values — AstroNew ships with **no default model
+hardcoded in the source**, so `AI_MODEL` must always be set here (or through the guided setup / menu
+option 5). `AI_MODEL_FALLBACK` is **optional**: if you omit it, the automatic fallback is simply
+disabled. When set, it is the model AstroNew retries with automatically if the model in `AI_MODEL`
+returns a reply in an unexpected format or is unavailable.
 
 > ⚠️ **Never commit `astronew/.env` with a real key.** Keep it listed in `.gitignore`. The API key must
 > come from the environment file — it is never hardcoded in the source.
 
 The data-query and plotting features work fully **without** any API key; only the AI assistant requires one.
+
+> 🤖 **Choosing a model.** AstroNew works with **any model exposed through an OpenAI-compatible API**
+> (OpenRouter, NVIDIA NIM, OpenAI, …) **that supports tool calling / function calling**. Different free
+> models on OpenRouter can behave slightly differently — some return replies in a slightly different
+> structure, and not all of them support tools. Before setting a model in `AI_MODEL`, check its page on
+> [openrouter.ai](https://openrouter.ai/models) and make sure it explicitly lists support for
+> **"tools" / "function calling"**. If the chosen model replies in an unexpected format or is
+> unavailable, AstroNew logs the raw response and automatically retries once with the model in
+> `AI_MODEL_FALLBACK`, showing a clear notice.
+
+### 🤖 Recommended models / Modelli consigliati
+
+> ⚠️ **NON TUTTI I MODELLI DISPONIBILI SU OPENROUTER FUNZIONANO CORRETTAMENTE CON ASTRONEW** — l'assistente
+> IA richiede supporto esplicito per il tool calling (function calling). VERIFICA SEMPRE CHE IL MODELLO
+> SCELTO DICHIARI SUPPORTO PER "TOOLS" NELLA SUA PAGINA SU OPENROUTER.AI PRIMA DI USARLO.
+
+La famiglia **NVIDIA Nemotron** è quella con cui AstroNew è stato validato. Il modello confermato
+funzionante (indicato solo con il suo ID tecnico così come appare su OpenRouter) è:
+
+- `nvidia/nemotron-3-super-120b-a12b:free`
+
+Altri modelli della stessa famiglia Nemotron elencati su
+[openrouter.ai/models](https://openrouter.ai/models) sono buoni candidati: **copia l'ID esatto dalla
+pagina del modello** (gli slug e il suffisso `:free` possono cambiare nel tempo, quindi non affidarti a
+elenchi statici) e verifica che dichiari il supporto per **"tools"**. Incolla poi l'ID alla voce
+`AI_MODEL` tramite la configurazione guidata, il menu opzione 5, o manualmente in `astronew/.env`.
 
 ---
 
@@ -163,11 +198,26 @@ You'll get a simple text menu:
 
 ```
 Menu principale:
-1) Cerca stella/regione      # Search a star / sky region
-2) Visualizza grafici        # Generate plots
-3) Assistente IA             # AI assistant
-4) Esci                      # Quit
+1) Cerca stella/regione                      # Search a star / sky region
+2) Visualizza grafici                        # Generate plots
+3) Assistente IA                             # AI assistant
+4) Esci                                      # Quit
+5) Configura provider IA (chiave API e modello)   # Set/change API key & model anytime
+6) Togli tutte le chiavi API dal progetto    # Purge every API key from the project
 ```
+
+Options **5** and **6** manage the AI provider configuration at any time (not just on first launch):
+
+- **`5) Configura provider IA`** — shows the current configuration (API key masked, e.g.
+  `sk-or-v1-****...1234`, plus model, fallback model and base URL) and lets you change the API key,
+  the model (`AI_MODEL`), the fallback model (`AI_MODEL_FALLBACK`) and the base URL. Press Enter on any
+  field to keep its current value. Changes are written to `astronew/.env` (existing lines are replaced,
+  never duplicated) and reloaded immediately — no restart needed.
+- **`6) Togli tutte le chiavi API dal progetto`** — a safety "purge" button: after a confirmation prompt,
+  it scans every text file under the project (skipping `.venv`, `.git` and binaries) and replaces any API
+  key in `sk-...` form with the placeholder, leaving `.env.example` untouched. The configuration is
+  reloaded so the removed key is no longer active in the session. Handy before sharing or committing the
+  project. Re-add a key later via option 5.
 
 ### A typical session
 

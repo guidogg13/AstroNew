@@ -28,7 +28,7 @@ pip install -r requirements.txt
 Al **primo avvio** dell'app, se il file `astronew/.env` non esiste ancora (oppure la chiave API è vuota o uguale al placeholder), parte automaticamente una **configurazione guidata** che chiede in sequenza:
 
 - la **chiave API** di un provider compatibile OpenAI come OpenRouter (gratuito per molti modelli)
-- il **nome del modello**, con un default già suggerito (`nvidia/nemotron-3-super-120b-a12b:free`): premi Invio per accettarlo
+- il **nome del modello**: va inserito esplicitamente (non c'è un default hardcodato nel codice), copiandolo dalla pagina del modello su openrouter.ai; deve supportare il tool calling
 - il **base URL** dell'API, con default `https://openrouter.ai/api/v1`: premi Invio per accettarlo
 
 Le risposte vengono salvate automaticamente in `astronew/.env`: **non serve modificare il file a mano**.
@@ -56,3 +56,19 @@ Lancia l'app come modulo dalla root del progetto (il nome del pacchetto è minus
 ```bash
 python3 -m astronew.main
 ```
+
+### Menu principale
+
+```
+1) Cerca stella/regione
+2) Visualizza grafici
+3) Assistente IA
+4) Esci
+5) Configura provider IA (chiave API e modello)
+6) Togli tutte le chiavi API dal progetto
+```
+
+Le opzioni **5** e **6** gestiscono la configurazione dell'IA in qualsiasi momento, non solo al primo avvio:
+
+- **`5) Configura provider IA`** — mostra la configurazione attuale (chiave API mascherata, es. `sk-or-v1-****...1234`, modello, modello di fallback e base URL) e permette di cambiare chiave API, modello (`AI_MODEL`), modello di fallback (`AI_MODEL_FALLBACK`) e base URL. Premi Invio su un campo per lasciarlo invariato. Le modifiche vengono scritte in `astronew/.env` (le righe esistenti vengono sostituite, mai duplicate) e ricaricate subito, senza riavviare l'app.
+- **`6) Togli tutte le chiavi API dal progetto`** — pulsante di sicurezza: dopo una richiesta di conferma, scandisce ogni file di testo del progetto (saltando `.venv`, `.git` e i file binari) e sostituisce col placeholder ogni chiave in formato `sk-...`, senza toccare `.env.example`. La configurazione viene ricaricata, così la chiave rimossa non è più attiva nella sessione. Utile prima di condividere o committare il progetto; per rimettere una chiave usa l'opzione 5.

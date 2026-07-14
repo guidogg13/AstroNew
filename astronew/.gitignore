@@ -1,3 +1,8 @@
+# Ignora ogni file .env (inclusi .env.backup, .env.disabled, ecc.) che puo'
+# contenere credenziali reali. Fa eccezione .env.example, che contiene solo
+# placeholder e va versionato.
 .env
+.env.*
+!.env.example
 __pycache__/
 *.py[cod]

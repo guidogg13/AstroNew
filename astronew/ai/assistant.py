@@ -18,6 +18,7 @@ from openai import (
     APIError,
     APIConnectionError,
     AuthenticationError,
+    BadRequestError,
     NotFoundError,
     OpenAI,
     RateLimitError,
@@ -47,14 +48,34 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 ENV_PATH = ROOT_DIR / ".env"
 
 PLACEHOLDER_KEY = "INSERISCI_QUI_LA_TUA_CHIAVE_OPENROUTER"
-DEFAULT_AI_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+# Nessun modello IA e' hardcodato: il nome del modello deve provenire SEMPRE da
+# .env (variabile AI_MODEL), impostata dalla configurazione guidata
+# (run_first_time_setup / configure_ai_provider). Qui il default resta vuoto
+# apposta, cosi' nessun ID di modello di terze parti e' scritto nel sorgente.
+DEFAULT_AI_MODEL = ""
+# Modello di riserva: usato in automatico se il modello configurato in AI_MODEL
+# restituisce una risposta in formato inatteso o non e' disponibile. Anche questo
+# deve provenire da .env (AI_MODEL_FALLBACK); default vuoto (fallback disattivato
+# finche' l'utente non ne configura uno).
+DEFAULT_AI_MODEL_FALLBACK = ""
+# API_BASE_URL non e' una credenziale: puo' restare come default nel codice.
 DEFAULT_API_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Configurazione caricata da .env. I valori vengono (ri)popolati da
 # reload_config() sia all'import sia dopo il setup guidato al primo avvio.
 OPENROUTER_API_KEY = ""
 AI_MODEL = ""
+AI_MODEL_FALLBACK = DEFAULT_AI_MODEL_FALLBACK
 API_BASE_URL = DEFAULT_API_BASE_URL
+
+
+class ResponseFormatError(RuntimeError):
+    """Sollevata quando la risposta dell'API non ha una struttura utilizzabile.
+
+    Serve a distinguere gli errori di formato (che possono variare tra provider
+    e modelli gratuiti diversi su OpenRouter) dagli errori di rete/autenticazione,
+    così da poter attivare il fallback automatico su un modello di riserva.
+    """
 
 
 def reload_config() -> None:
@@ -64,10 +85,14 @@ def reload_config() -> None:
     le costanti di modulo riflettano i nuovi valori nello stesso processo (le
     funzioni le leggono al momento della chiamata, non all'import).
     """
-    global OPENROUTER_API_KEY, AI_MODEL, API_BASE_URL
+    global OPENROUTER_API_KEY, AI_MODEL, AI_MODEL_FALLBACK, API_BASE_URL
     load_dotenv(ENV_PATH, override=True)
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
     AI_MODEL = os.getenv("AI_MODEL", "").strip()
+    AI_MODEL_FALLBACK = (
+        os.getenv("AI_MODEL_FALLBACK", DEFAULT_AI_MODEL_FALLBACK).strip()
+        or DEFAULT_AI_MODEL_FALLBACK
+    )
     API_BASE_URL = (
         os.getenv("API_BASE_URL", DEFAULT_API_BASE_URL).strip() or DEFAULT_API_BASE_URL
     )
@@ -182,21 +207,62 @@ def _message_to_dict(message: object) -> dict[str, object]:
     return {"content": str(message)}
 
 
+def _dump_raw_response(response: object) -> str:
+    """Restituisce una rappresentazione testuale della risposta grezza dell'API.
+
+    Utile per diagnosticare rapidamente differenze di formato tra provider/modelli
+    diversi su OpenRouter, dove alcuni modelli gratuiti restituiscono strutture
+    leggermente diverse (es. `delta` al posto di `message`, o `choices` vuota).
+    """
+    for attr in ("model_dump", "to_dict", "dict"):
+        method = getattr(response, attr, None)
+        if callable(method):
+            try:
+                return json.dumps(method(), indent=2, ensure_ascii=False, default=str)
+            except Exception:  # pragma: no cover - solo diagnostica
+                pass
+    try:
+        return json.dumps(response, indent=2, ensure_ascii=False, default=str)
+    except Exception:  # pragma: no cover - solo diagnostica
+        return repr(response)
+
+
 def _extract_response_message(response: object) -> dict[str, object]:
-    choice = None
+    choices = None
     if isinstance(response, dict):
         choices = response.get("choices")
-        if choices:
-            choice = choices[0]
     else:
-        choice = getattr(response, "choices", None)
-        if choice:
-            choice = choice[0]
+        choices = getattr(response, "choices", None)
 
-    if not choice:
-        raise RuntimeError("Il provider IA non ha restituito scelte valide.")
+    if not choices:
+        raw = _dump_raw_response(response)
+        print(
+            "Risposta grezza dell'API IA (nessuna scelta valida trovata):\n" + raw
+        )
+        raise ResponseFormatError("Il provider IA non ha restituito scelte valide.")
 
-    message = choice.get("message") if isinstance(choice, dict) else getattr(choice, "message", None)
+    choice = choices[0]
+
+    # Alcuni modelli/provider restituiscono `delta` (formato streaming parziale)
+    # invece di `message`. Trattiamo `delta` come fallback di `message`.
+    if isinstance(choice, dict):
+        message = choice.get("message")
+        if message is None:
+            message = choice.get("delta")
+    else:
+        message = getattr(choice, "message", None)
+        if message is None:
+            message = getattr(choice, "delta", None)
+
+    if message is None:
+        raw = _dump_raw_response(response)
+        print(
+            "Risposta grezza dell'API IA (scelta senza 'message' né 'delta'):\n" + raw
+        )
+        raise ResponseFormatError(
+            "Il provider IA ha restituito una scelta priva di 'message' o 'delta'."
+        )
+
     message_dict = _message_to_dict(message)
     tool_calls = message_dict.get("tool_calls")
     if isinstance(tool_calls, list):
@@ -216,15 +282,49 @@ def _extract_response_message(response: object) -> dict[str, object]:
                     },
                 }
             )
-        message_dict["tool_calls"] = normalized_tool_calls
+        # Scarta eventuali liste tool_calls vuote per non entrare nel loop dei tool
+        # senza motivo: alcuni modelli restituiscono "tool_calls": [] o [None].
+        normalized_tool_calls = [tc for tc in normalized_tool_calls if tc]
+        if normalized_tool_calls:
+            message_dict["tool_calls"] = normalized_tool_calls
+        else:
+            message_dict.pop("tool_calls", None)
+
+    # Normalizza il contenuto: garantisce sempre una chiave 'content' testuale.
+    # Casi limite gestiti in modo tollerante:
+    #  - contenuto vuoto ma tool_calls presenti -> normale, il loop eseguirà i tool
+    #  - tool_calls assenti e contenuto vuoto -> risposta finale vuota, non un errore
+    content = message_dict.get("content")
+    if content is None:
+        message_dict["content"] = ""
+
+    has_content = bool(str(message_dict.get("content", "")).strip())
+    has_tool_calls = bool(message_dict.get("tool_calls")) or bool(
+        message_dict.get("function_call")
+    )
+    if not has_content and not has_tool_calls:
+        # Né testo né richieste di tool: struttura inutilizzabile. Logga il grezzo
+        # e segnala un errore di formato così da poter attivare il fallback.
+        raw = _dump_raw_response(response)
+        print(
+            "Risposta grezza dell'API IA (messaggio senza contenuto né tool_calls):\n"
+            + raw
+        )
+        raise ResponseFormatError(
+            "Il provider IA ha restituito un messaggio vuoto (né testo né tool_calls)."
+        )
+
     return message_dict
 
 
-def _call_openai_with_tools(messages: list[dict[str, object]]) -> dict[str, object]:
+def _call_openai_with_tools(
+    messages: list[dict[str, object]], model: str | None = None
+) -> dict[str, object]:
     client = _get_openai_client()
+    model_to_use = model or AI_MODEL
     try:
         response = client.chat.completions.create(
-            model=AI_MODEL,
+            model=model_to_use,
             messages=messages,
             tools=TOOLS,
             tool_choice="auto",
@@ -442,6 +542,93 @@ def get_assistant_status() -> str:
     return "Assistente IA: configurazione API valida."
 
 
+def _api_error_to_user_message(exc: Exception) -> str:
+    """Traduce un'eccezione API in un messaggio chiaro per l'utente.
+
+    Stampa sempre il traceback completo (regola di progetto: mai nascondere
+    l'errore reale durante lo sviluppo) e ritorna un testo comprensibile.
+    """
+    traceback.print_exc()
+    if isinstance(exc, AuthenticationError):
+        return "Chiave API non valida o mancante. Controlla OPENROUTER_API_KEY nel file .env."
+    if isinstance(exc, RateLimitError):
+        return "Hai superato il limite di richieste dell'API. Riprova più tardi."
+    if isinstance(exc, APITimeoutError):
+        return "Timeout di rete durante la richiesta all'API IA. Riprova più tardi."
+    if isinstance(exc, APIConnectionError):
+        return "Errore di connessione alla API IA. Controlla la rete e l'URL di API_BASE_URL."
+    if isinstance(exc, NotFoundError):
+        return "Modello IA non trovato o non disponibile. Controlla AI_MODEL e il provider API."
+    if isinstance(exc, BadRequestError):
+        return (
+            "Il modello IA non è valido o non supporta il tool calling. "
+            f"Controlla AI_MODEL (e AI_MODEL_FALLBACK) sul provider. Dettaglio: {exc}"
+        )
+    if isinstance(exc, ResponseFormatError):
+        return f"Il provider IA ha restituito una risposta in un formato inatteso: {exc}"
+    if isinstance(exc, APIError):
+        return f"Errore API IA: {exc}"
+    return f"Errore inatteso: {exc}"
+
+
+def _run_conversation(model: str, base_messages: list[dict[str, object]]) -> str:
+    """Esegue una conversazione completa (con eventuali tool call) usando `model`.
+
+    Riceve i messaggi iniziali e ne lavora su una copia, così che un eventuale
+    retry con un modello di riserva riparta sempre da uno stato pulito. Le
+    eccezioni (di rete, autenticazione, formato risposta) vengono propagate al
+    chiamante, che decide se attivare il fallback o mostrare un errore.
+    """
+    messages = [dict(message) for message in base_messages]
+
+    response_message = _call_openai_with_tools(messages, model=model)
+
+    while response_message.get("tool_calls") or response_message.get("function_call"):
+        tool_calls = response_message.get("tool_calls") or []
+        if not tool_calls:
+            tool_call = response_message.get("function_call") or {}
+            tool_calls = [
+                {
+                    "id": "call_legacy",
+                    "type": "function",
+                    "function": {
+                        "name": tool_call.get("name", ""),
+                        "arguments": tool_call.get("arguments") or {},
+                    },
+                }
+            ]
+
+        assistant_message = {"role": "assistant", "content": response_message.get("content", "")}
+        if tool_calls:
+            assistant_message["tool_calls"] = tool_calls
+        messages.append(assistant_message)
+
+        for tool_call in tool_calls:
+            function = tool_call.get("function", {}) if isinstance(tool_call, dict) else getattr(tool_call, "function", {})
+            tool_name = function.get("name", "") if isinstance(function, dict) else getattr(function, "name", "")
+            raw_arguments = function.get("arguments") or {} if isinstance(function, dict) else getattr(function, "arguments", None)
+            if isinstance(raw_arguments, str):
+                try:
+                    arguments = json.loads(raw_arguments)
+                except json.JSONDecodeError:
+                    arguments = {}
+            else:
+                arguments = raw_arguments
+
+            tool_name, tool_output = _execute_tool_call({"function": {"name": tool_name, "arguments": arguments}})
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.get("id") if isinstance(tool_call, dict) else getattr(tool_call, "id", None),
+                    "content": tool_output,
+                }
+            )
+
+        response_message = _call_openai_with_tools(messages, model=model)
+
+    return response_message.get("content", "") or ""
+
+
 def ask_astro_assistant(user_question: str, data_context: object | None = None) -> str:
     """Ask the local OpenAI-compatible assistant an astrophysics question."""
     if _is_api_key_placeholder():
@@ -486,98 +673,38 @@ def ask_astro_assistant(user_question: str, data_context: object | None = None) 
 
     messages.append({"role": "user", "content": user_question})
 
+    # Errori che indicano un problema di formato della risposta o di modello non
+    # disponibile/incompatibile: in questi casi ha senso ritentare con un modello
+    # di riserva, perché i modelli gratuiti su OpenRouter differiscono nel
+    # supporto ai tool e nel formato restituito. NotFoundError (404) e
+    # BadRequestError (400) coprono i casi tipici di OpenRouter, che segnala sia
+    # "is not a valid model ID" sia "no endpoints support tool use" con un 400.
+    # Errori di rete/autenticazione/rate limit NON attivano il fallback (riprovare
+    # con un altro modello non li risolverebbe). Se anche il modello di riserva
+    # fallisce, l'errore reale viene comunque mostrato all'utente.
+    fallback_triggers = (ResponseFormatError, NotFoundError, BadRequestError)
+
     try:
-        response_message = _call_openai_with_tools(messages)
+        return _run_conversation(AI_MODEL, messages)
     except ValueError as exc:
         return str(exc)
-    except AuthenticationError:
-        traceback.print_exc()
-        return "Chiave API non valida o mancante. Controlla OPENROUTER_API_KEY nel file .env."
-    except RateLimitError:
-        traceback.print_exc()
-        return "Hai superato il limite di richieste dell'API. Riprova più tardi."
-    except APITimeoutError:
-        traceback.print_exc()
-        return "Timeout di rete durante la richiesta all'API IA. Riprova più tardi."
-    except APIConnectionError:
-        traceback.print_exc()
-        return "Errore di connessione alla API IA. Controlla la rete e l'URL di API_BASE_URL."
-    except NotFoundError:
-        traceback.print_exc()
-        return "Modello IA non trovato o non disponibile. Controlla AI_MODEL e il provider API."
-    except APIError as exc:
-        traceback.print_exc()
-        return f"Errore API IA: {exc}"
-    except Exception as exc:
-        traceback.print_exc()
-        return f"Errore inatteso: {exc}"
+    except fallback_triggers as exc:
+        fallback_model = (AI_MODEL_FALLBACK or DEFAULT_AI_MODEL_FALLBACK).strip()
+        if not fallback_model or fallback_model == AI_MODEL:
+            # Nessun modello di riserva utile disponibile: mostra l'errore.
+            return _api_error_to_user_message(exc)
 
-    while response_message.get("tool_calls") or response_message.get("function_call"):
-        tool_calls = response_message.get("tool_calls") or []
-        if not tool_calls:
-            tool_call = response_message.get("function_call") or {}
-            tool_calls = [
-                {
-                    "id": "call_legacy",
-                    "type": "function",
-                    "function": {
-                        "name": tool_call.get("name", ""),
-                        "arguments": tool_call.get("arguments") or {},
-                    },
-                }
-            ]
-
-        assistant_message = {"role": "assistant", "content": response_message.get("content", "")}
-        if tool_calls:
-            assistant_message["tool_calls"] = tool_calls
-        messages.append(assistant_message)
-
-        for tool_call in tool_calls:
-            function = tool_call.get("function", {}) if isinstance(tool_call, dict) else getattr(tool_call, "function", {})
-            tool_name = function.get("name", "") if isinstance(function, dict) else getattr(function, "name", "")
-            raw_arguments = function.get("arguments") or {} if isinstance(function, dict) else getattr(function, "arguments", None)
-            if isinstance(raw_arguments, str):
-                try:
-                    arguments = json.loads(raw_arguments)
-                except json.JSONDecodeError:
-                    arguments = {}
-            else:
-                arguments = raw_arguments
-
-            tool_name, tool_output = _execute_tool_call({"function": {"name": tool_name, "arguments": arguments}})
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tool_call.get("id") if isinstance(tool_call, dict) else getattr(tool_call, "id", None),
-                    "content": tool_output,
-                }
-            )
-
+        traceback.print_exc()
+        print(
+            "Il modello configurato non ha risposto correttamente, "
+            f"sto riprovando con un modello di riserva ({fallback_model})."
+        )
         try:
-            response_message = _call_openai_with_tools(messages)
-        except AuthenticationError:
-            traceback.print_exc()
-            return "Chiave API non valida o mancante. Controlla OPENROUTER_API_KEY nel file .env."
-        except RateLimitError:
-            traceback.print_exc()
-            return "Hai superato il limite di richieste dell'API. Riprova più tardi."
-        except APITimeoutError:
-            traceback.print_exc()
-            return "Timeout di rete durante la richiesta all'API IA. Riprova più tardi."
-        except APIConnectionError:
-            traceback.print_exc()
-            return "Errore di connessione alla API IA. Controlla la rete e l'URL di API_BASE_URL."
-        except NotFoundError:
-            traceback.print_exc()
-            return "Modello IA non trovato o non disponibile. Controlla AI_MODEL e il provider API."
-        except APIError as exc:
-            traceback.print_exc()
-            return f"Errore API IA: {exc}"
-        except Exception as exc:
-            traceback.print_exc()
-            return f"Errore inatteso durante l'esecuzione del tool: {exc}"
-
-    return response_message.get("content", "") or ""
+            return _run_conversation(fallback_model, messages)
+        except Exception as fallback_exc:
+            return _api_error_to_user_message(fallback_exc)
+    except Exception as exc:
+        return _api_error_to_user_message(exc)
 
 
 def interactive_session(df: pd.DataFrame | None = None) -> None:

@@ -23,7 +23,11 @@ from astronew.viz.plots import (
     plot_proper_motion_vectors,
 )
 from astronew.ai.assistant import interactive_session, get_assistant_status
-from astronew.setup import run_first_time_setup
+from astronew.setup import (
+    run_first_time_setup,
+    configure_ai_provider,
+    remove_all_api_keys,
+)
 
 
 def _search_region_session() -> Optional[pd.DataFrame]:
@@ -111,6 +115,8 @@ def main() -> None:
             print("2) Visualizza grafici")
             print("3) Assistente IA")
             print("4) Esci")
+            print("5) Configura provider IA (chiave API e modello)")
+            print("6) Togli tutte le chiavi API dal progetto")
             choice = input("Seleziona un'opzione: ").strip()
         except (KeyboardInterrupt, EOFError):
             print("\nSessione interrotta, torno al menu principale")
@@ -136,8 +142,12 @@ def main() -> None:
         elif choice == "4":
             print("Uscita da AstroNew. Arrivederci!")
             break
+        elif choice == "5":
+            configure_ai_provider()
+        elif choice == "6":
+            remove_all_api_keys()
         else:
-            print("Opzione non valida. Inserisci 1, 2, 3 o 4.")
+            print("Opzione non valida. Inserisci 1, 2, 3, 4, 5 o 6.")
 
 
 if __name__ == "__main__":
