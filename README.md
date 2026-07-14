@@ -140,12 +140,10 @@ skip the wizard.
 
 **Option B — Manual configuration.** Create a file at `astronew/.env` with the following variables:
 
-```env
 OPENROUTER_API_KEY=your_real_api_key_here
-AI_MODEL=nvidia/nemotron-3-super-120b-a12b:free
-AI_MODEL_FALLBACK=nvidia/nemotron-3-super-120b-a12b:free
+AI_MODEL=your_model_here
+AI_MODEL_FALLBACK=your_fallback_model_here
 API_BASE_URL=https://openrouter.ai/api/v1
-```
 
 The model IDs above are only an example of valid values — AstroNew ships with **no default model
 hardcoded in the source**, so `AI_MODEL` must always be set here (or through the guided setup / menu
