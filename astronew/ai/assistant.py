@@ -533,6 +533,20 @@ def _execute_tool_call(tool_call: dict[str, object]) -> tuple[str, str]:
     return tool_name, f"Errore: tool sconosciuto '{tool_name}'."
 
 
+def is_config_valid() -> bool:
+    """Restituisce True se la configurazione API IA è utilizzabile.
+
+    Effettua la stessa verifica di ``_validate_openai_config`` (chiave reale
+    presente e ``AI_MODEL`` impostato) ma senza sollevare eccezioni, così la
+    GUI può decidere se abilitare l'invio dei messaggi.
+    """
+    try:
+        _validate_openai_config()
+        return True
+    except ValueError:
+        return False
+
+
 def get_assistant_status() -> str:
     """Check whether the assistant can run with the current configuration."""
     if _is_api_key_placeholder():
