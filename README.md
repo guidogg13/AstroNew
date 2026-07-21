@@ -14,7 +14,7 @@
 
 ## 📖 About AstroNew
 
-**AstroNew** is a free, open, educational desktop application (written in Python) that lets you. This I'snt a finished project!
+**AstroNew** is a free, open, educational desktop application (written in Python) that lets you.
 query the official **ESA Gaia DR3** archive, run real astrophysical calculations on the results,
 visualize them with scientific plots, and ask questions about them to a built-in AI assistant —
 all from a simple menu-driven command-line interface.
@@ -39,6 +39,11 @@ faithful to the real data**.
   documented in the code with the physical relation it implements.
 - **An AI assistant with autonomous tool calling** — it can query Gaia on its own when your question
   needs data it doesn't already have, and it is instructed to never invent numbers, methods, or terminology.
+  This Isn't a finished project!!!
+  I’d advise you not to download the project as it isn’t finished
+
+  
+
 
 ---
 
